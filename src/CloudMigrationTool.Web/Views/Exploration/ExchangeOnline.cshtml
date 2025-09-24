@@ -1,0 +1,320 @@
+@model CloudMigrationTool.Web.Models.ExchangeOnlineExplorationViewModel
+@{
+    ViewData["Title"] = "Exchange Online Explorer";
+}
+
+<div class="container-fluid">
+    <h2 class="mb-4">Exchange Online Explorer</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="connectionId" class="form-label">Connection</label>
+                            <select name="connectionId" id="connectionId" class="form-select" onchange="this.form.submit()">
+                                <option value="">-- Select Connection --</option>
+                                @foreach (var conn in Model.AvailableConnections)
+                                {
+                                    <option value="@conn.Id" selected="@(Model.ConnectionId == conn.Id)">@conn.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="searchQuery" class="form-label">Search</label>
+                            <input type="text" name="searchQuery" id="searchQuery" class="form-control" value="@Model.SearchQuery" placeholder="Search mailboxes, groups...">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary">Search</button>
+                                <button type="button" class="btn btn-success" onclick="saveSelection()">Save Selection</button>
+                                <button type="button" class="btn btn-info" onclick="showFilterOptions()">
+                                    <i class="fas fa-filter"></i> Filters
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.IsConnected)
+    {
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Mailboxes</h5>
+                        <h3 class="card-text">@Model.TotalMailboxes</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Distribution Groups</h5>
+                        <h3 class="card-text">@Model.TotalDistributionGroups</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Shared Mailboxes</h5>
+                        <h3 class="card-text">@Model.TotalSharedMailboxes</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Selected Items</h5>
+                        <h3 class="card-text">@Model.SelectedItems.Count</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="exchangeOnlineTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="mailboxes-tab" data-bs-toggle="tab" data-bs-target="#mailboxes" type="button">
+                    User Mailboxes <span class="badge bg-secondary">@Model.TotalMailboxes</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="distribution-groups-tab" data-bs-toggle="tab" data-bs-target="#distribution-groups" type="button">
+                    Distribution Groups <span class="badge bg-secondary">@Model.TotalDistributionGroups</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="shared-mailboxes-tab" data-bs-toggle="tab" data-bs-target="#shared-mailboxes" type="button">
+                    Shared Mailboxes <span class="badge bg-secondary">@Model.TotalSharedMailboxes</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="exchangeOnlineTabContent">
+            <div class="tab-pane fade show active" id="mailboxes" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllMailboxes" onchange="toggleAllItems('mailbox')">
+                            <label class="form-check-label" for="selectAllMailboxes">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="mailboxesTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckMailboxes">
+                                        </th>
+                                        <th>Display Name</th>
+                                        <th>Email Address</th>
+                                        <th>Mailbox Type</th>
+                                        <th>Size</th>
+                                        <th>Item Count</th>
+                                        <th>Archive</th>
+                                        <th>Licensed</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var mailbox in Model.Mailboxes)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="mailbox" data-id="@mailbox.PrimarySmtpAddress">
+                                            </td>
+                                            <td>@mailbox.DisplayName</td>
+                                            <td>@mailbox.PrimarySmtpAddress</td>
+                                            <td>
+                                                @switch (mailbox.MailboxType)
+                                                {
+                                                    case "UserMailbox":
+                                                        <span class="badge bg-primary">User</span>
+                                                        break;
+                                                    case "SharedMailbox":
+                                                        <span class="badge bg-info">Shared</span>
+                                                        break;
+                                                    case "RoomMailbox":
+                                                        <span class="badge bg-warning">Room</span>
+                                                        break;
+                                                    default:
+                                                        <span class="badge bg-dark">@mailbox.MailboxType</span>
+                                                        break;
+                                                }
+                                            </td>
+                                            <td>@FormatSize(mailbox.TotalItemSize)</td>
+                                            <td>@mailbox.ItemCount.ToString("N0")</td>
+                                            <td>
+                                                @if (mailbox.IsArchiveEnabled)
+                                                {
+                                                    <span class="badge bg-success">Yes</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">No</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-success">Licensed</span>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewMailboxDetails('@mailbox.PrimarySmtpAddress')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="distribution-groups" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllDistGroups" onchange="toggleAllItems('distribution-group')">
+                            <label class="form-check-label" for="selectAllDistGroups">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="distributionGroupsTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckDistGroups">
+                                        </th>
+                                        <th>Name</th>
+                                        <th>Email Address</th>
+                                        <th>Members</th>
+                                        <th>Moderated</th>
+                                        <th>Managed By</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var group in Model.DistributionGroups)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="distribution-group" data-id="@group.Id">
+                                            </td>
+                                            <td>@group.Name</td>
+                                            <td>@group.EmailAddress</td>
+                                            <td>@group.MemberCount</td>
+                                            <td>
+                                                @if (group.ModeratedEnabled)
+                                                {
+                                                    <span class="badge bg-warning">Yes</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">No</span>
+                                                }
+                                            </td>
+                                            <td>@string.Join(", ", group.ManagedBy.Take(2))</td>
+                                            <td>@(group.Created?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewGroupDetails('@group.Id')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="shared-mailboxes" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllSharedMailboxes" onchange="toggleAllItems('shared-mailbox')">
+                            <label class="form-check-label" for="selectAllSharedMailboxes">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="sharedMailboxesTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckSharedMailboxes">
+                                        </th>
+                                        <th>Name</th>
+                                        <th>Email Address</th>
+                                        <th>Size</th>
+                                        <th>Item Count</th>
+                                        <th>Delegates</th>
+                                        <th>Last Accessed</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var shared in Model.SharedMailboxes)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="shared-mailbox" data-id="@shared.Id">
+                                            </td>
+                                            <td>@shared.Name</td>
+                                            <td>@shared.EmailAddress</td>
+                                            <td>@FormatSize(shared.TotalSize)</td>
+                                            <td>@shared.ItemCount.ToString("N0")</td>
+                                            <td>@shared.Delegates.Count</td>
+                                            <td>@(shared.LastAccessed?.ToString("yyyy-MM-dd") ?? "Never")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewSharedMailboxDetails('@shared.Id')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (Model.ConnectionId.HasValue)
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> Failed to connect to Exchange Online. Please check your connection settings.
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Please select a connection to explore Exchange Online objects.
+        </div>
+    }
+</div>
+
+@functions {
+    private string FormatSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}
+
+@section Scripts {
+    <script src="~/js/exploration.js"></script>
+}

@@ -1,0 +1,161 @@
+﻿@model IEnumerable<ConnectionSettings>
+@{
+    ViewData["Title"] = "Manage Connections";
+}
+
+@Html.AntiForgeryToken()
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-plug"></i>
+                Connection Settings
+            </h1>
+            <a asp-action="CreateConnection" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Connection
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                @if (Model.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var connection in Model)
+                                {
+                                    <tr>
+                                        <td><strong>@connection.Name</strong></td>
+                                        <td><span class="badge bg-secondary">@connection.Type</span></td>
+                                        <td>@(connection.Description ?? "No description")</td>
+                                        <td>@await Html.PartialAsync("_ConnectionStatusBadge", connection.Status)</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary test-connection" 
+                                                        data-id="@connection.Id" title="Test Connection">
+                                                    <i class="fas fa-plug"></i>
+                                                </button>
+                                                <a asp-action="EditConnection" asp-route-id="@connection.Id"
+                                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger delete-connection"
+                                                        data-id="@connection.Id"
+                                                        data-name="@connection.Name"
+                                                        title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-plug fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No connections configured</h4>
+                        <p class="text-muted">Create your first connection to get started.</p>
+                        <a asp-action="CreateConnection" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create Connection
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Test connection functionality
+            $('.test-connection').on('click', function() {
+                var btn = $(this);
+                var connectionId = btn.data('id');
+                var originalIcon = btn.html();
+
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
+                $.post('@Url.Action("TestConnection", "Admin")', { id: connectionId })
+                    .done(function(response) {
+                        if (response.success) {
+                            btn.removeClass('btn-outline-primary')
+                               .addClass('btn-outline-success')
+                               .html('<i class="fas fa-check"></i>');
+                        } else {
+                            btn.removeClass('btn-outline-primary')
+                               .addClass('btn-outline-danger')
+                               .html('<i class="fas fa-times"></i>');
+                        }
+
+                        setTimeout(function() {
+                            btn.prop('disabled', false)
+                               .removeClass('btn-outline-success btn-outline-danger')
+                               .addClass('btn-outline-primary')
+                               .html(originalIcon);
+                        }, 2000);
+                    })
+                    .fail(function() {
+                        btn.removeClass('btn-outline-primary')
+                           .addClass('btn-outline-danger')
+                           .html('<i class="fas fa-times"></i>');
+
+                        setTimeout(function() {
+                            btn.prop('disabled', false)
+                               .removeClass('btn-outline-danger')
+                               .addClass('btn-outline-primary')
+                               .html(originalIcon);
+                        }, 2000);
+                    });
+            });
+
+            // Delete connection functionality
+            $('.delete-connection').on('click', function() {
+                var btn = $(this);
+                var connectionId = btn.data('id');
+                var connectionName = btn.data('name');
+
+                if (confirm('Are you sure you want to delete the connection "' + connectionName + '"? This action cannot be undone.')) {
+                    var form = $('<form>').attr({
+                        method: 'POST',
+                        action: '@Url.Action("DeleteConnection", "Admin")'
+                    }).append(
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'id',
+                            value: connectionId
+                        })
+                    ).append(
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: '__RequestVerificationToken',
+                            value: $('input[name="__RequestVerificationToken"]').val()
+                        })
+                    );
+
+                    $('body').append(form);
+                    form.submit();
+                }
+            });
+        });
+    </script>
+}

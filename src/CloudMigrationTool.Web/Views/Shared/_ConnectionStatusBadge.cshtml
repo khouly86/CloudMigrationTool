@@ -1,0 +1,26 @@
+﻿@model CloudMigrationTool.Core.Enums.ConnectionStatus
+
+@switch (Model)
+{
+    case ConnectionStatus.NotConfigured:
+        <span class="badge bg-secondary">Not Configured</span>
+        break;
+    case ConnectionStatus.Connected:
+        <span class="badge bg-success">
+            <i class="fas fa-plug"></i> Connected
+        </span>
+        break;
+    case ConnectionStatus.Disconnected:
+        <span class="badge bg-warning">
+            <i class="fas fa-unlink"></i> Disconnected
+        </span>
+        break;
+    case ConnectionStatus.Error:
+        <span class="badge bg-danger">
+            <i class="fas fa-exclamation-triangle"></i> Error
+        </span>
+        break;
+    default:
+        <span class="badge bg-secondary">Unknown</span>
+        break;
+}

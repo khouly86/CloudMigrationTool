@@ -1,0 +1,321 @@
+@model CloudMigrationTool.Web.Models.ConnectionSettingsViewModel
+@{
+    ViewData["Title"] = "Create Connection";
+}
+
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a asp-controller="Admin" asp-action="Index">Administration</a></li>
+                <li class="breadcrumb-item"><a asp-controller="Admin" asp-action="Connections">Connections</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Create Connection</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-plus-circle"></i>
+                Create New Connection
+            </h1>
+            <a asp-controller="Admin" asp-action="Connections" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Connections
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Connection Details</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="CreateConnection" method="post" class="needs-validation" novalidate>
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="Name" class="form-label">
+                                    <i class="fas fa-tag"></i> Connection Name
+                                </label>
+                                <input asp-for="Name" class="form-control" placeholder="e.g., Production Active Directory" required />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                                <div class="form-text">A friendly name to identify this connection</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="Type" class="form-label">
+                                    <i class="fas fa-network-wired"></i> Connection Type
+                                </label>
+                                <select asp-for="Type" class="form-select" required onchange="updateConnectionHelp()">
+                                    <option value="">-- Select Connection Type --</option>
+                                    <option value="1">Active Directory</option>
+                                    <option value="2">Exchange Server</option>
+                                    <option value="3">Exchange Online</option>
+                                    <option value="4">Entra ID (Azure AD)</option>
+                                    <option value="5">OneDrive</option>
+                                    <option value="6">SharePoint</option>
+                                    <option value="7">SharePoint Online</option>
+                                </select>
+                                <span asp-validation-for="Type" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">
+                            <i class="fas fa-info-circle"></i> Description
+                        </label>
+                        <textarea asp-for="Description" class="form-control" rows="2" placeholder="Optional description of this connection"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="ConnectionString" class="form-label">
+                            <i class="fas fa-link"></i> Connection String
+                        </label>
+                        <textarea asp-for="ConnectionString" class="form-control" rows="3" placeholder="Enter connection string..." required></textarea>
+                        <span asp-validation-for="ConnectionString" class="text-danger"></span>
+                        <div class="form-text" id="connectionHelp">
+                            Select a connection type above to see the required connection string format.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="AdditionalSettings" class="form-label">
+                            <i class="fas fa-cogs"></i> Additional Settings (JSON)
+                        </label>
+                        <textarea asp-for="AdditionalSettings" class="form-control" rows="2" placeholder='{"timeout": 30, "retryCount": 3}'></textarea>
+                        <span asp-validation-for="AdditionalSettings" class="text-danger"></span>
+                        <div class="form-text">Optional JSON configuration for advanced settings</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+                            <label asp-for="IsActive" class="form-check-label">
+                                <i class="fas fa-toggle-on"></i> Enable this connection
+                            </label>
+                        </div>
+                        <div class="form-text">Disabled connections cannot be used for migrations</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-save"></i> Create Connection
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="testConnection()">
+                                <i class="fas fa-plug"></i> Test Connection
+                            </button>
+                        </div>
+                        <a asp-controller="Admin" asp-action="Connections" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle"></i> Connection Examples
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="connectionExamples">
+                    <!-- Active Directory Examples -->
+                    <div class="accordion-item">
+                        <h6 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#adExamples">
+                                <i class="fas fa-users"></i>&nbsp; Active Directory
+                            </button>
+                        </h6>
+                        <div id="adExamples" class="accordion-collapse collapse" data-bs-parent="#connectionExamples">
+                            <div class="accordion-body">
+                                <strong>On-Premises AD:</strong>
+                                <code class="d-block mb-2">Type=OnPremises;Domain=contoso.local;Username=admin;Password=pass123</code>
+                                
+                                <strong>Azure AD:</strong>
+                                <code class="d-block">Type=AzureAD;TenantId=tenant-id;ClientId=app-id;ClientSecret=secret</code>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Exchange Examples -->
+                    <div class="accordion-item">
+                        <h6 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#exchangeExamples">
+                                <i class="fas fa-envelope"></i>&nbsp; Exchange Server
+                            </button>
+                        </h6>
+                        <div id="exchangeExamples" class="accordion-collapse collapse" data-bs-parent="#connectionExamples">
+                            <div class="accordion-body">
+                                <strong>Exchange Server (On-Premises):</strong>
+                                <code class="d-block mb-2">ServerUrl=https://exchange.company.com/PowerShell/;Username=admin;Password=pass123;Domain=contoso</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exchange Online Examples -->
+                    <div class="accordion-item">
+                        <h6 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#exchangeOnlineExamples">
+                                <i class="fas fa-cloud"></i>&nbsp; Exchange Online
+                            </button>
+                        </h6>
+                        <div id="exchangeOnlineExamples" class="accordion-collapse collapse" data-bs-parent="#connectionExamples">
+                            <div class="accordion-body">
+                                <strong>Exchange Online (Microsoft 365):</strong>
+                                <code class="d-block mb-2">TenantId=tenant-id;ClientId=app-id;ClientSecret=secret</code>
+
+                                <strong>Using PowerShell:</strong>
+                                <code class="d-block">ConnectionUri=https://outlook.office365.com/powershell-liveid/;Username=admin@contoso.com;Password=pass123</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Entra ID Examples -->
+                    <div class="accordion-item">
+                        <h6 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#entraIdExamples">
+                                <i class="fas fa-user-shield"></i>&nbsp; Entra ID
+                            </button>
+                        </h6>
+                        <div id="entraIdExamples" class="accordion-collapse collapse" data-bs-parent="#connectionExamples">
+                            <div class="accordion-body">
+                                <strong>Entra ID (Azure AD):</strong>
+                                <code class="d-block">Type=AzureAD;TenantId=tenant-id;ClientId=app-id;ClientSecret=secret</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3" role="alert">
+                    <i class="fas fa-lightbulb"></i>
+                    <strong>Tip:</strong> Always test your connection before saving to ensure it works correctly.
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-shield-alt"></i> Security Notes
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-lock text-success"></i> Connection strings are encrypted in storage</li>
+                    <li><i class="fas fa-eye-slash text-info"></i> Passwords are never displayed in the UI</li>
+                    <li><i class="fas fa-history text-warning"></i> All connection attempts are logged</li>
+                    <li><i class="fas fa-user-shield text-primary"></i> Use service accounts with minimal permissions</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function updateConnectionHelp() {
+            const typeSelect = document.getElementById('Type');
+            const helpText = document.getElementById('connectionHelp');
+            const connectionStringTextarea = document.getElementById('ConnectionString');
+            
+            switch(typeSelect.value) {
+                case '1': // Active Directory
+                    helpText.innerHTML = '<strong>Active Directory (On-Premises) Examples:</strong><br/>' +
+                        '<code>Type=OnPremises;Domain=contoso.local;Username=admin;Password=yourpassword</code><br/>' +
+                        '<code>Type=OnPremises;Domain=contoso.local;Username=admin;Password=yourpassword;Container=OU=Users,DC=contoso,DC=local</code>';
+                    connectionStringTextarea.placeholder = 'Type=OnPremises;Domain=contoso.local;Username=admin;Password=yourpassword';
+                    break;
+                case '2': // Exchange Server
+                    helpText.innerHTML = '<strong>Exchange Server (On-Premises) Examples:</strong><br/>' +
+                        '<code>ServerUrl=https://exchange.company.com/PowerShell/;Username=admin;Password=yourpassword;Domain=contoso</code><br/>' +
+                        '<code>ServerUrl=https://exchange.company.com/PowerShell/;Username=admin@contoso.com;Password=yourpassword</code>';
+                    connectionStringTextarea.placeholder = 'ServerUrl=https://exchange.company.com/PowerShell/;Username=admin;Password=yourpassword;Domain=contoso';
+                    break;
+                case '3': // Exchange Online
+                    helpText.innerHTML = '<strong>Exchange Online (Microsoft 365) Examples:</strong><br/>' +
+                        '<code>TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret</code><br/>' +
+                        '<code>ConnectionUri=https://outlook.office365.com/powershell-liveid/;Username=admin@contoso.com;Password=yourpassword</code>';
+                    connectionStringTextarea.placeholder = 'TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret';
+                    break;
+                case '4': // Entra ID
+                    helpText.innerHTML = '<strong>Entra ID (Azure AD) Examples:</strong><br/>' +
+                        '<code>Type=AzureAD;TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret</code><br/>' +
+                        '<code>Type=AzureAD;TenantId=contoso.onmicrosoft.com;ClientId=12345678-1234-1234-1234-123456789012;ClientSecret=your-secret</code>';
+                    connectionStringTextarea.placeholder = 'Type=AzureAD;TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret';
+                    break;
+                case '5': // OneDrive
+                    helpText.innerHTML = '<strong>OneDrive Example:</strong><br/>' +
+                        '<code>TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret</code>';
+                    connectionStringTextarea.placeholder = 'TenantId=your-tenant-id;ClientId=your-app-id;ClientSecret=your-secret';
+                    break;
+                case '6': // SharePoint
+                    helpText.innerHTML = '<strong>SharePoint On-Premises Example:</strong><br/>' +
+                        '<code>SiteUrl=https://sharepoint.company.com;Username=admin;Password=yourpassword;Domain=contoso</code>';
+                    connectionStringTextarea.placeholder = 'SiteUrl=https://sharepoint.company.com;Username=admin;Password=yourpassword;Domain=contoso';
+                    break;
+                case '7': // SharePoint Online
+                    helpText.innerHTML = '<strong>SharePoint Online Example:</strong><br/>' +
+                        '<code>SiteUrl=https://contoso.sharepoint.com;TenantId=tenant-id;ClientId=app-id;ClientSecret=secret</code>';
+                    connectionStringTextarea.placeholder = 'SiteUrl=https://contoso.sharepoint.com;TenantId=tenant-id;ClientId=app-id;ClientSecret=secret';
+                    break;
+                default:
+                    helpText.textContent = 'Select a connection type above to see the required connection string format.';
+                    connectionStringTextarea.placeholder = 'Enter connection string...';
+            }
+        }
+        
+        function testConnection() {
+            const form = document.querySelector('form');
+            const formData = new FormData(form);
+            
+            // Disable the test button
+            const testBtn = event.target;
+            const originalText = testBtn.innerHTML;
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            
+            // Simulate connection test
+            setTimeout(function() {
+                alert('Connection test functionality will be implemented when the form is submitted and saved.');
+                
+                // Re-enable button
+                testBtn.disabled = false;
+                testBtn.innerHTML = originalText;
+            }, 2000);
+        }
+        
+        // Form validation
+        (function() {
+            'use strict';
+            window.addEventListener('load', function() {
+                var forms = document.getElementsByClassName('needs-validation');
+                var validation = Array.prototype.filter.call(forms, function(form) {
+                    form.addEventListener('submit', function(event) {
+                        if (form.checkValidity() === false) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        form.classList.add('was-validated');
+                    }, false);
+                });
+            }, false);
+        })();
+    </script>
+}

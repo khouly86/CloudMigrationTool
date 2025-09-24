@@ -1,0 +1,126 @@
+@{
+    ViewData["Title"] = "Exploration Center";
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-4">Exploration Center</h2>
+            <p class="lead mb-5">Explore and select items from your source and destination systems for migration.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users"></i> Active Directory
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Explore users, groups, and organizational units from your on-premises Active Directory environment.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Browse domain users</li>
+                        <li><i class="fas fa-check text-success"></i> View security groups</li>
+                        <li><i class="fas fa-check text-success"></i> Examine organizational units</li>
+                        <li><i class="fas fa-check text-success"></i> Select items for migration</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="@Url.Action("ActiveDirectory", "Exploration")" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Explore AD
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cloud"></i> Entra ID (Azure AD)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Explore cloud users, groups, applications, and directory roles in Entra ID.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Browse cloud users</li>
+                        <li><i class="fas fa-check text-success"></i> View Azure AD groups</li>
+                        <li><i class="fas fa-check text-success"></i> Examine applications</li>
+                        <li><i class="fas fa-check text-success"></i> Review directory roles</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="@Url.Action("EntraId", "Exploration")" class="btn btn-success">
+                        <i class="fas fa-search"></i> Explore Entra ID
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-server"></i> Exchange Server
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Explore mailboxes and other Exchange objects from your on-premises Exchange Server.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Browse user mailboxes</li>
+                        <li><i class="fas fa-check text-success"></i> View shared mailboxes</li>
+                        <li><i class="fas fa-check text-success"></i> Examine mailbox sizes</li>
+                        <li><i class="fas fa-check text-success"></i> Filter by database</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="@Url.Action("Exchange", "Exploration")" class="btn btn-info">
+                        <i class="fas fa-search"></i> Explore Exchange
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cloud-upload-alt"></i> Exchange Online
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Explore mailboxes, distribution groups, and other objects in Exchange Online.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Browse cloud mailboxes</li>
+                        <li><i class="fas fa-check text-success"></i> View distribution groups</li>
+                        <li><i class="fas fa-check text-success"></i> Examine shared mailboxes</li>
+                        <li><i class="fas fa-check text-success"></i> Check licensing status</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="@Url.Action("ExchangeOnline", "Exploration")" class="btn btn-warning text-dark">
+                        <i class="fas fa-search"></i> Explore Exchange Online
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle"></i> Getting Started</h5>
+                <ol class="mb-0">
+                    <li><strong>Configure Connections:</strong> Set up your source and destination connections in the <a href="@Url.Action("Index", "Admin")">Administration</a> section.</li>
+                    <li><strong>Explore Systems:</strong> Use the exploration pages above to browse and understand your environment.</li>
+                    <li><strong>Select Items:</strong> Choose the users, groups, or mailboxes you want to migrate.</li>
+                    <li><strong>Create Migration Jobs:</strong> Go to <a href="@Url.Action("Create", "Migration")">Migrations</a> to create new migration jobs with your selected items.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>

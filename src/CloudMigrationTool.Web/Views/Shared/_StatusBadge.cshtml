@@ -1,0 +1,36 @@
+﻿@model CloudMigrationTool.Core.Enums.MigrationStatus
+
+@switch (Model)
+{
+    case MigrationStatus.NotStarted:
+        <span class="badge bg-secondary">Not Started</span>
+        break;
+    case MigrationStatus.InProgress:
+        <span class="badge bg-primary">
+            <i class="fas fa-spinner fa-spin"></i> In Progress
+        </span>
+        break;
+    case MigrationStatus.Completed:
+        <span class="badge bg-success">
+            <i class="fas fa-check"></i> Completed
+        </span>
+        break;
+    case MigrationStatus.Failed:
+        <span class="badge bg-danger">
+            <i class="fas fa-times"></i> Failed
+        </span>
+        break;
+    case MigrationStatus.Paused:
+        <span class="badge bg-warning">
+            <i class="fas fa-pause"></i> Paused
+        </span>
+        break;
+    case MigrationStatus.Cancelled:
+        <span class="badge bg-dark">
+            <i class="fas fa-stop"></i> Cancelled
+        </span>
+        break;
+    default:
+        <span class="badge bg-secondary">Unknown</span>
+        break;
+}

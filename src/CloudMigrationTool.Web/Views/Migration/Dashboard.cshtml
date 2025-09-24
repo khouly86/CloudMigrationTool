@@ -1,0 +1,237 @@
+﻿@model MigrationDashboardViewModel
+@{
+    ViewData["Title"] = "Migration Overview";
+}
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-exchange-alt"></i>
+                Migration Overview
+            </h1>
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Migration
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Total Jobs</h5>
+                        <h2 class="mb-0">@Model.TotalJobs</h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-tasks fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">In Progress</h5>
+                        <h2 class="mb-0">@Model.InProgressJobs</h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-sync-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Completed</h5>
+                        <h2 class="mb-0">@Model.CompletedJobs</h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Failed</h5>
+                        <h2 class="mb-0">@Model.FailedJobs</h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Active Migration Jobs</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.ActiveJobs.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Job Name</th>
+                                    <th>Type</th>
+                                    <th>Progress</th>
+                                    <th>Started</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var job in Model.ActiveJobs)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@job.Id">
+                                                @job.Name
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">@job.Type</span>
+                                        </td>
+                                        <td>
+                                            @if (job.TotalItems > 0)
+                                            {
+                                                var percentage = (double)job.ProcessedItems / job.TotalItems * 100;
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                         role="progressbar" style="width: @percentage%"
+                                                         aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">
+                                                        @percentage.ToString("F1")%
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">@job.ProcessedItems / @job.TotalItems items</small>
+                                            }
+                                            else
+                                            {
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                         style="width: 100%">Initializing...</div>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (job.StartedAt.HasValue)
+                                            {
+                                                <span class="text-muted">@job.StartedAt.Value.ToString("MMM dd, HH:mm")</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                @if (job.Status == MigrationStatus.InProgress)
+                                                {
+                                                    <form method="post" asp-action="Pause" asp-route-id="@job.Id" style="display: inline;">
+                                                        <button type="submit" class="btn btn-outline-warning" title="Pause">
+                                                            <i class="fas fa-pause"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                                else if (job.Status == MigrationStatus.Paused)
+                                                {
+                                                    <form method="post" asp-action="Start" asp-route-id="@job.Id" style="display: inline;">
+                                                        <button type="submit" class="btn btn-outline-success" title="Resume">
+                                                            <i class="fas fa-play"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                                
+                                                <form method="post" asp-action="Cancel" asp-route-id="@job.Id" style="display: inline;">
+                                                    <button type="submit" class="btn btn-outline-danger" title="Cancel"
+                                                            onclick="return confirm('Are you sure you want to cancel this migration?')">
+                                                        <i class="fas fa-stop"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No active migrations</h5>
+                        <p class="text-muted">All migration jobs are completed or stopped.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Jobs</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.RecentJobs.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var job in Model.RecentJobs.Take(5))
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-start px-0">
+                                <div class="ms-2 me-auto">
+                                    <div class="fw-bold">
+                                        <a asp-action="Details" asp-route-id="@job.Id">@job.Name</a>
+                                    </div>
+                                    <small class="text-muted">@job.CreatedAt.ToString("MMM dd, yyyy")</small>
+                                </div>
+                                @await Html.PartialAsync("_StatusBadge", job.Status)
+                            </div>
+                        }
+                    </div>
+                    <div class="text-center mt-3">
+                        <a asp-action="Index" class="btn btn-sm btn-outline-primary">View All Jobs</a>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted text-center">No recent jobs found.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh every 15 seconds for active jobs
+        @if (Model.ActiveJobs.Any())
+        {
+            <text>
+            setInterval(function() {
+                location.reload();
+            }, 15000);
+            </text>
+        }
+    </script>
+}

@@ -1,0 +1,429 @@
+@model CloudMigrationTool.Web.Models.EntraIdExplorationViewModel
+@{
+    ViewData["Title"] = "Entra ID Explorer";
+}
+
+<div class="container-fluid">
+    <h2 class="mb-4">Entra ID (Azure AD) Explorer</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="connectionId" class="form-label">Connection</label>
+                            <select name="connectionId" id="connectionId" class="form-select" onchange="this.form.submit()">
+                                <option value="">-- Select Connection --</option>
+                                @foreach (var conn in Model.AvailableConnections)
+                                {
+                                    <option value="@conn.Id" selected="@(Model.ConnectionId == conn.Id)">@conn.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="searchQuery" class="form-label">Search</label>
+                            <input type="text" name="searchQuery" id="searchQuery" class="form-control" value="@Model.SearchQuery" placeholder="Search users, groups, apps...">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary">Search</button>
+                                <button type="button" class="btn btn-success" onclick="saveSelection()">Save Selection</button>
+                                <button type="button" class="btn btn-info" onclick="showFilterOptions()">
+                                    <i class="fas fa-filter"></i> Filters
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.IsConnected)
+    {
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Users</h5>
+                        <h3 class="card-text">@Model.TotalUsers</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Groups</h5>
+                        <h3 class="card-text">@Model.TotalGroups</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Applications</h5>
+                        <h3 class="card-text">@Model.TotalApplications</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Roles</h5>
+                        <h3 class="card-text">@Model.TotalRoles</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="entraIdTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button">
+                    Users <span class="badge bg-secondary">@Model.TotalUsers</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button">
+                    Groups <span class="badge bg-secondary">@Model.TotalGroups</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="applications-tab" data-bs-toggle="tab" data-bs-target="#applications" type="button">
+                    Applications <span class="badge bg-secondary">@Model.TotalApplications</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles" type="button">
+                    Directory Roles <span class="badge bg-secondary">@Model.TotalRoles</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="entraIdTabContent">
+            <div class="tab-pane fade show active" id="users" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllUsers" onchange="toggleAllItems('user')">
+                            <label class="form-check-label" for="selectAllUsers">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckUsers">
+                                        </th>
+                                        <th>Display Name</th>
+                                        <th>User Principal Name</th>
+                                        <th>Email</th>
+                                        <th>Department</th>
+                                        <th>Account Status</th>
+                                        <th>User Type</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var user in Model.Users)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="user" data-id="@user.UserPrincipalName">
+                                            </td>
+                                            <td>@user.DisplayName</td>
+                                            <td>@user.UserPrincipalName</td>
+                                            <td>@user.EmailAddress</td>
+                                            <td>@user.Department</td>
+                                            <td>
+                                                @if (user.Enabled)
+                                                {
+                                                    <span class="badge bg-success">Enabled</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Disabled</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (user.UserPrincipalName?.Contains("#EXT#") == true)
+                                                {
+                                                    <span class="badge bg-warning">Guest</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-primary">Member</span>
+                                                }
+                                            </td>
+                                            <td>@(user.PasswordLastSet?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails('@user.UserPrincipalName')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="groups" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllGroups" onchange="toggleAllItems('group')">
+                            <label class="form-check-label" for="selectAllGroups">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="groupsTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckGroups">
+                                        </th>
+                                        <th>Display Name</th>
+                                        <th>Name</th>
+                                        <th>Group Type</th>
+                                        <th>Scope</th>
+                                        <th>Members</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var group in Model.Groups)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="group" data-id="@group.Id">
+                                            </td>
+                                            <td>@group.DisplayName</td>
+                                            <td>@group.Name</td>
+                                            <td>
+                                                @if (group.GroupType == "Security")
+                                                {
+                                                    <span class="badge bg-primary">Security</span>
+                                                }
+                                                else if (group.GroupType == "Distribution")
+                                                {
+                                                    <span class="badge bg-info">Distribution</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">@group.GroupType</span>
+                                                }
+                                            </td>
+                                            <td>@group.Scope</td>
+                                            <td>@group.MemberCount</td>
+                                            <td>@(group.Created?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewGroupDetails('@group.Id')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="applications" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllApplications" onchange="toggleAllItems('application')">
+                            <label class="form-check-label" for="selectAllApplications">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="applicationsTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckApplications">
+                                        </th>
+                                        <th>Display Name</th>
+                                        <th>App ID</th>
+                                        <th>Sign-in Audience</th>
+                                        <th>Status</th>
+                                        <th>Reply URLs</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var app in Model.Applications)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="application" data-id="@app.Id">
+                                            </td>
+                                            <td>@app.DisplayName</td>
+                                            <td><code>@app.AppId</code></td>
+                                            <td>@app.SignInAudience</td>
+                                            <td>
+                                                @if (app.IsEnabled)
+                                                {
+                                                    <span class="badge bg-success">Enabled</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Disabled</span>
+                                                }
+                                            </td>
+                                            <td>@app.ReplyUrls.Count</td>
+                                            <td>@(app.Created?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewApplicationDetails('@app.Id')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="roles" role="tabpanel">
+                <div class="card mt-0 border-top-0">
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAllRoles" onchange="toggleAllItems('role')">
+                            <label class="form-check-label" for="selectAllRoles">Select All</label>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="rolesTable">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" class="form-check-input" id="headerCheckRoles">
+                                        </th>
+                                        <th>Display Name</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Members</th>
+                                        <th>Permissions</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var role in Model.Roles)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input item-checkbox" data-type="role" data-id="@role.Id">
+                                            </td>
+                                            <td>@role.DisplayName</td>
+                                            <td>@role.Description</td>
+                                            <td>
+                                                @if (role.IsBuiltIn)
+                                                {
+                                                    <span class="badge bg-primary">Built-in</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-info">Custom</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (role.IsEnabled)
+                                                {
+                                                    <span class="badge bg-success">Enabled</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Disabled</span>
+                                                }
+                                            </td>
+                                            <td>@role.MemberCount</td>
+                                            <td>@role.Permissions.Count</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewRoleDetails('@role.Id')">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (Model.ConnectionId.HasValue)
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> Failed to connect to Entra ID. Please check your connection settings.
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Please select a connection to explore Entra ID objects.
+        </div>
+    }
+</div>
+
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Filter Options</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="filterForm">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showSyncedOnly">
+                            <label class="form-check-label" for="showSyncedOnly">
+                                Show only synced users
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showCloudOnly">
+                            <label class="form-check-label" for="showCloudOnly">
+                                Show only cloud users
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showGuestUsers">
+                            <label class="form-check-label" for="showGuestUsers">
+                                Show guest users
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="domainFilter" class="form-label">Domain Filter</label>
+                        <input type="text" id="domainFilter" class="form-control" placeholder="e.g., contoso.com">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/exploration.js"></script>
+}

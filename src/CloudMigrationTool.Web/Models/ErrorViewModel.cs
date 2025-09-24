@@ -1,0 +1,10 @@
+﻿using System.Diagnostics;
+
+namespace CloudMigrationTool.Web.Models
+{
+    public class ErrorViewModel
+    {
+        public string? RequestId { get; set; }
+        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    }
+}
