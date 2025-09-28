@@ -114,4 +114,10 @@ namespace CloudMigrationTool.Web.Models
         [Required]
         public string ItemType { get; set; } = string.Empty;
     }
+
+    public class ConnectionTestViewModel
+    {
+        public List<ConnectionSettings> AvailableConnections { get; set; } = new List<ConnectionSettings>();
+        public Dictionary<int, ConnectionTestResult> TestResults { get; set; } = new Dictionary<int, ConnectionTestResult>();
+    }
 }

@@ -1,0 +1,349 @@
+@model CloudMigrationTool.Web.Models.ConnectionTestViewModel
+@{
+    ViewData["Title"] = "Test Connections";
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2 class="mb-4">
+                <i class="fas fa-plug"></i> Test Connections
+            </h2>
+            <p class="lead mb-4">Test your connection configurations to verify they work properly before exploration or migration.</p>
+        </div>
+    </div>
+
+    @if (Model.AvailableConnections.Any())
+    {
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list"></i> Available Connections
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Last Tested</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var connection in Model.AvailableConnections)
+                                    {
+                                        <tr id="connection-row-@connection.Id">
+                                            <td>
+                                                <strong>@connection.Name</strong>
+                                                @if (!connection.IsActive)
+                                                {
+                                                    <span class="badge badge-secondary ml-2">Inactive</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-@GetConnectionTypeBadgeClass(connection.Type)">
+                                                    @connection.Type
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span id="status-@connection.Id" class="connection-status">
+                                                    <span class="badge badge-secondary">
+                                                        <i class="fas fa-question"></i> Unknown
+                                                    </span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span id="last-tested-@connection.Id" class="last-tested">
+                                                    Never
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary test-connection-btn"
+                                                        data-connection-id="@connection.Id"
+                                                        data-connection-name="@connection.Name">
+                                                    <i class="fas fa-play"></i> Test
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info view-details-btn"
+                                                        data-connection-id="@connection.Id"
+                                                        style="display: none;">
+                                                    <i class="fas fa-info-circle"></i> Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-primary" id="test-all-btn">
+                                <i class="fas fa-play-circle"></i> Test All Connections
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Results Panel -->
+        <div class="row mt-4" id="test-results-panel" style="display: none;">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clipboard-list"></i> Test Results
+                        </h5>
+                    </div>
+                    <div class="card-body" id="test-results-content">
+                        <!-- Test results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-12">
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> No Connections Found</h5>
+                    <p class="mb-0">
+                        You need to create connections before you can test them.
+                        Go to the <a href="@Url.Action("Index", "Admin")" class="alert-link">Administration</a> section to add your connection configurations.
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@functions {
+    private string GetConnectionTypeBadgeClass(CloudMigrationTool.Core.Enums.ConnectionType type)
+    {
+        return type switch
+        {
+            CloudMigrationTool.Core.Enums.ConnectionType.ActiveDirectory => "primary",
+            CloudMigrationTool.Core.Enums.ConnectionType.EntraId => "success",
+            CloudMigrationTool.Core.Enums.ConnectionType.Exchange => "info",
+            CloudMigrationTool.Core.Enums.ConnectionType.ExchangeOnline => "warning",
+            _ => "secondary"
+        };
+    }
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Test single connection
+            $('.test-connection-btn').click(function () {
+                const connectionId = $(this).data('connection-id');
+                const connectionName = $(this).data('connection-name');
+                testConnection(connectionId, connectionName);
+            });
+
+            // Test all connections
+            $('#test-all-btn').click(function () {
+                testAllConnections();
+            });
+
+            // View test details
+            $(document).on('click', '.view-details-btn', function () {
+                const connectionId = $(this).data('connection-id');
+                showTestDetails(connectionId);
+            });
+        });
+
+        function testConnection(connectionId, connectionName) {
+            const button = $(`.test-connection-btn[data-connection-id="${connectionId}"]`);
+            const statusElement = $(`#status-${connectionId}`);
+            const lastTestedElement = $(`#last-tested-${connectionId}`);
+
+            // Update UI to show testing state
+            button.prop('disabled', true);
+            button.html('<i class="fas fa-spinner fa-spin"></i> Testing...');
+            statusElement.html('<span class="badge badge-info"><i class="fas fa-spinner fa-spin"></i> Testing...</span>');
+
+            // Make AJAX request to test connection
+            $.post('@Url.Action("TestConnection", "Exploration")', { connectionId: connectionId })
+                .done(function (result) {
+                    handleTestResult(connectionId, connectionName, result);
+                })
+                .fail(function (xhr) {
+                    handleTestError(connectionId, connectionName, xhr);
+                })
+                .always(function () {
+                    // Re-enable button
+                    button.prop('disabled', false);
+                    button.html('<i class="fas fa-play"></i> Test');
+                });
+        }
+
+        function testAllConnections() {
+            const testAllBtn = $('#test-all-btn');
+            testAllBtn.prop('disabled', true);
+            testAllBtn.html('<i class="fas fa-spinner fa-spin"></i> Testing All...');
+
+            let completedTests = 0;
+            const totalTests = $('.test-connection-btn').length;
+
+            $('.test-connection-btn').each(function () {
+                const connectionId = $(this).data('connection-id');
+                const connectionName = $(this).data('connection-name');
+
+                testConnection(connectionId, connectionName);
+                completedTests++;
+
+                if (completedTests === totalTests) {
+                    setTimeout(function () {
+                        testAllBtn.prop('disabled', false);
+                        testAllBtn.html('<i class="fas fa-play-circle"></i> Test All Connections');
+                    }, 1000);
+                }
+            });
+        }
+
+        function handleTestResult(connectionId, connectionName, result) {
+            const statusElement = $(`#status-${connectionId}`);
+            const lastTestedElement = $(`#last-tested-${connectionId}`);
+            const viewDetailsBtn = $(`.view-details-btn[data-connection-id="${connectionId}"]`);
+
+            // Update last tested time
+            lastTestedElement.text(new Date(result.testTime).toLocaleString());
+
+            // Store test result data
+            $(`#connection-row-${connectionId}`).data('test-result', result);
+
+            // Update status based on result
+            if (result.isSuccessful) {
+                statusElement.html('<span class="badge badge-success"><i class="fas fa-check"></i> Connected</span>');
+                showTestResultCard(connectionId, connectionName, result, 'success');
+            } else {
+                statusElement.html('<span class="badge badge-danger"><i class="fas fa-times"></i> Failed</span>');
+                showTestResultCard(connectionId, connectionName, result, 'danger');
+            }
+
+            // Show details button
+            viewDetailsBtn.show();
+        }
+
+        function handleTestError(connectionId, connectionName, xhr) {
+            const statusElement = $(`#status-${connectionId}`);
+            const lastTestedElement = $(`#last-tested-${connectionId}`);
+
+            statusElement.html('<span class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> Error</span>');
+            lastTestedElement.text(new Date().toLocaleString());
+
+            let errorMessage = 'Unknown error occurred';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            }
+
+            const errorResult = {
+                isSuccessful: false,
+                status: 'Error',
+                message: errorMessage,
+                testTime: new Date().toISOString(),
+                additionalInfo: {}
+            };
+
+            showTestResultCard(connectionId, connectionName, errorResult, 'danger');
+        }
+
+        function showTestResultCard(connectionId, connectionName, result, alertType) {
+            const resultsPanel = $('#test-results-panel');
+            const resultsContent = $('#test-results-content');
+
+            // Show the results panel
+            resultsPanel.show();
+
+            // Create result card
+            const cardHtml = `
+                <div class="alert alert-${alertType} mb-3" id="result-${connectionId}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="alert-heading">
+                                <i class="fas fa-${result.isSuccessful ? 'check-circle' : 'exclamation-triangle'}"></i>
+                                ${connectionName}
+                            </h6>
+                            <p class="mb-1"><strong>Status:</strong> ${result.status}</p>
+                            <p class="mb-2">${result.message}</p>
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> Tested: ${new Date(result.testTime).toLocaleString()}
+                            </small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAdditionalInfo(${connectionId})">
+                            <i class="fas fa-info"></i> Details
+                        </button>
+                    </div>
+                    <div id="additional-info-${connectionId}" class="mt-3" style="display: none;">
+                        <hr>
+                        <h6>Additional Information:</h6>
+                        <div class="row">
+                            ${Object.entries(result.additionalInfo || {}).map(([key, value]) => `
+                                <div class="col-md-6 mb-2">
+                                    <strong>${key}:</strong> ${value}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing result for this connection
+            $(`#result-${connectionId}`).remove();
+
+            // Add new result
+            resultsContent.append(cardHtml);
+
+            // Scroll to results
+            $('html, body').animate({
+                scrollTop: resultsPanel.offset().top - 20
+            }, 500);
+        }
+
+        function toggleAdditionalInfo(connectionId) {
+            $(`#additional-info-${connectionId}`).toggle();
+        }
+
+        function showTestDetails(connectionId) {
+            const testResult = $(`#connection-row-${connectionId}`).data('test-result');
+            if (testResult) {
+                // Scroll to the result card
+                const resultCard = $(`#result-${connectionId}`);
+                if (resultCard.length) {
+                    $('html, body').animate({
+                        scrollTop: resultCard.offset().top - 20
+                    }, 500);
+                    resultCard.addClass('border-primary');
+                    setTimeout(() => resultCard.removeClass('border-primary'), 2000);
+                }
+            }
+        }
+    </script>
+}
+
+@section Styles {
+    <style>
+        .connection-status .badge {
+            font-size: 0.85em;
+        }
+
+        .test-connection-btn:disabled {
+            cursor: not-allowed;
+        }
+
+        .alert .row .col-md-6 {
+            font-size: 0.9em;
+        }
+
+        .border-primary {
+            transition: border-color 0.3s ease;
+        }
+    </style>
+}

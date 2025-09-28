@@ -14,5 +14,6 @@ namespace CloudMigrationTool.Services.Exploration
         Task<ExchangeMailbox?> GetMailboxForConnectionAsync(ConnectionSettings connection, string emailAddress);
         Task<IEnumerable<DistributionGroup>> GetDistributionGroupsForConnectionAsync(ConnectionSettings connection);
         Task<IEnumerable<SharedMailbox>> GetSharedMailboxesForConnectionAsync(ConnectionSettings connection);
+        Task<ConnectionTestResult> TestConnectionAsync(ConnectionSettings connection);
     }
 }

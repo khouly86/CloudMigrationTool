@@ -112,10 +112,29 @@
 
     <div class="row mt-4">
         <div class="col-md-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plug"></i> Connection Testing
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Test your connection configurations before exploration or migration to ensure they work properly.</p>
+                    <a href="@Url.Action("TestConnection", "Exploration")" class="btn btn-secondary">
+                        <i class="fas fa-plug"></i> Test Connections
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
             <div class="alert alert-info">
                 <h5><i class="fas fa-info-circle"></i> Getting Started</h5>
                 <ol class="mb-0">
                     <li><strong>Configure Connections:</strong> Set up your source and destination connections in the <a href="@Url.Action("Index", "Admin")">Administration</a> section.</li>
+                    <li><strong>Test Connections:</strong> Use the <a href="@Url.Action("TestConnection", "Exploration")">Connection Testing</a> page to verify your configurations work properly.</li>
                     <li><strong>Explore Systems:</strong> Use the exploration pages above to browse and understand your environment.</li>
                     <li><strong>Select Items:</strong> Choose the users, groups, or mailboxes you want to migrate.</li>
                     <li><strong>Create Migration Jobs:</strong> Go to <a href="@Url.Action("Create", "Migration")">Migrations</a> to create new migration jobs with your selected items.</li>

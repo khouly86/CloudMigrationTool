@@ -38,6 +38,18 @@ namespace CloudMigrationTool.Web.Controllers
         }
 
         [HttpGet]
+        public async Task<IActionResult> TestConnection()
+        {
+            var allConnections = await _connectionService.GetAllAsync();
+            var viewModel = new ConnectionTestViewModel
+            {
+                AvailableConnections = allConnections.ToList()
+            };
+
+            return View(viewModel);
+        }
+
+        [HttpGet]
         public async Task<IActionResult> ActiveDirectory(int? connectionId)
         {
             var allConnections = await _connectionService.GetAllAsync();
@@ -241,6 +253,38 @@ namespace CloudMigrationTool.Web.Controllers
             {
                 _logger.LogError(ex, "Failed to get mailbox details for {Email}", emailAddress);
                 return BadRequest(new { error = "Failed to load mailbox details" });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> TestConnection(int connectionId)
+        {
+            try
+            {
+                var connection = await _connectionService.GetByIdAsync(connectionId);
+                if (connection == null)
+                {
+                    return BadRequest(new { error = "Connection not found" });
+                }
+
+                var testResult = await _explorationService.TestConnectionAsync(connection);
+
+                _logger.LogInformation("Connection test completed for {ConnectionName}: {IsSuccessful}",
+                    connection.Name, testResult.IsSuccessful);
+
+                return Json(new
+                {
+                    isSuccessful = testResult.IsSuccessful,
+                    status = testResult.Status.ToString(),
+                    message = testResult.Message,
+                    testTime = testResult.TestTime,
+                    additionalInfo = testResult.AdditionalInfo
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to test connection {ConnectionId}", connectionId);
+                return BadRequest(new { error = $"Failed to test connection: {ex.Message}" });
             }
         }
 

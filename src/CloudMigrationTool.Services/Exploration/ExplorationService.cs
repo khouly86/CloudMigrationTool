@@ -1247,6 +1247,336 @@ namespace CloudMigrationTool.Services.Exploration
 
         #endregion
 
+        #region Connection Testing
+
+        public async Task<ConnectionTestResult> TestConnectionAsync(ConnectionSettings connection)
+        {
+            try
+            {
+                _logger.LogInformation("Testing connection: {ConnectionName} of type {ConnectionType}",
+                    connection.Name, connection.Type);
+
+                if (!connection.IsActive)
+                {
+                    return new ConnectionTestResult
+                    {
+                        IsSuccessful = false,
+                        Status = Core.Enums.ConnectionStatus.Inactive,
+                        Message = "Connection is marked as inactive",
+                        AdditionalInfo = new Dictionary<string, string>
+                        {
+                            ["ConnectionName"] = connection.Name ?? "Unknown",
+                            ["ConnectionType"] = connection.Type.ToString()
+                        }
+                    };
+                }
+
+                switch (connection.Type)
+                {
+                    case ConnectionType.ActiveDirectory:
+                        return await TestOnPremisesActiveDirectoryConnectionAsync(connection);
+
+                    case ConnectionType.EntraId:
+                        return await TestEntraIdConnectionAsync(connection);
+
+                    case ConnectionType.ExchangeOnline:
+                        return await TestExchangeOnlineConnectionAsync(connection);
+
+                    case ConnectionType.Exchange:
+                        return await TestOnPremisesExchangeConnectionAsync(connection);
+
+                    default:
+                        return new ConnectionTestResult
+                        {
+                            IsSuccessful = false,
+                            Status = Core.Enums.ConnectionStatus.Error,
+                            Message = $"Unsupported connection type: {connection.Type}",
+                            AdditionalInfo = new Dictionary<string, string>
+                            {
+                                ["ConnectionName"] = connection.Name ?? "Unknown",
+                                ["ConnectionType"] = connection.Type.ToString()
+                            }
+                        };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to test connection {ConnectionName}", connection.Name);
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = false,
+                    Status = Core.Enums.ConnectionStatus.Error,
+                    Message = $"Connection test failed: {ex.Message}",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["ConnectionName"] = connection.Name ?? "Unknown",
+                        ["ConnectionType"] = connection.Type.ToString(),
+                        ["ErrorType"] = ex.GetType().Name,
+                        ["StackTrace"] = ex.StackTrace ?? "No stack trace available"
+                    }
+                };
+            }
+        }
+
+        private async Task<ConnectionTestResult> TestOnPremisesActiveDirectoryConnectionAsync(ConnectionSettings connection)
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows())
+                {
+                    return new ConnectionTestResult
+                    {
+                        IsSuccessful = false,
+                        Status = Core.Enums.ConnectionStatus.Error,
+                        Message = "On-premises Active Directory is only supported on Windows platforms",
+                        AdditionalInfo = new Dictionary<string, string>
+                        {
+                            ["Platform"] = Environment.OSVersion.Platform.ToString(),
+                            ["OSVersion"] = Environment.OSVersion.VersionString
+                        }
+                    };
+                }
+
+                var config = AdConnectionConfig.ParseConnectionString(connection.ConnectionString);
+
+                return await Task.Run(() =>
+                {
+                    try
+                    {
+                        using (var context = CreatePrincipalContext(config))
+                        {
+                            // Test by trying to validate the context
+                            var testUser = new System.DirectoryServices.AccountManagement.UserPrincipal(context);
+                            using (var searcher = new System.DirectoryServices.AccountManagement.PrincipalSearcher(testUser))
+                            {
+                                // Try to get just one user to test connectivity
+                                var result = searcher.FindAll().Take(1).FirstOrDefault();
+
+                                return new ConnectionTestResult
+                                {
+                                    IsSuccessful = true,
+                                    Status = Core.Enums.ConnectionStatus.Connected,
+                                    Message = "Successfully connected to Active Directory",
+                                    AdditionalInfo = new Dictionary<string, string>
+                                    {
+                                        ["Domain"] = config.Domain ?? "Current Domain",
+                                        ["Server"] = config.Server ?? "Default",
+                                        ["AuthenticationType"] = !string.IsNullOrEmpty(config.Username) ? "Explicit Credentials" : "Current User",
+                                        ["TestResult"] = result != null ? "User query successful" : "No users found (empty domain or permission issue)"
+                                    }
+                                };
+                            }
+                        }
+                    }
+                    catch (System.DirectoryServices.DirectoryServicesCOMException ex)
+                    {
+                        string errorDetails = ex.ErrorCode switch
+                        {
+                            -2147016646 => "The specified domain either does not exist or could not be contacted", // 0x8007052E
+                            -2147023570 => "The user name or password is incorrect", // 0x8007052E
+                            -2147016656 => "The server is not operational", // 0x80072020
+                            -2147016651 => "Invalid credentials", // 0x80070005
+                            _ => $"Directory Services error (Code: 0x{ex.ErrorCode:X8})"
+                        };
+
+                        return new ConnectionTestResult
+                        {
+                            IsSuccessful = false,
+                            Status = Core.Enums.ConnectionStatus.AuthenticationFailed,
+                            Message = $"{errorDetails}: {ex.Message}",
+                            AdditionalInfo = new Dictionary<string, string>
+                            {
+                                ["ErrorCode"] = $"0x{ex.ErrorCode:X8}",
+                                ["Domain"] = config.Domain ?? "Current Domain",
+                                ["Server"] = config.Server ?? "Default",
+                                ["Username"] = config.Username ?? "Current User",
+                                ["Suggestion"] = GetAuthenticationSuggestion(ex.ErrorCode, config)
+                            }
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        return new ConnectionTestResult
+                        {
+                            IsSuccessful = false,
+                            Status = Core.Enums.ConnectionStatus.Error,
+                            Message = ex.Message,
+                            AdditionalInfo = new Dictionary<string, string>
+                            {
+                                ["ErrorType"] = ex.GetType().Name,
+                                ["Domain"] = config.Domain ?? "Current Domain",
+                                ["Server"] = config.Server ?? "Default"
+                            }
+                        };
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = false,
+                    Status = Core.Enums.ConnectionStatus.Error,
+                    Message = $"Failed to test Active Directory connection: {ex.Message}",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["ErrorType"] = ex.GetType().Name
+                    }
+                };
+            }
+        }
+
+        private async Task<ConnectionTestResult> TestEntraIdConnectionAsync(ConnectionSettings connection)
+        {
+            try
+            {
+                var config = AdConnectionConfig.ParseConnectionString(connection.ConnectionString);
+
+                if (string.IsNullOrEmpty(config.TenantId) || string.IsNullOrEmpty(config.ClientId) || string.IsNullOrEmpty(config.ClientSecret))
+                {
+                    return new ConnectionTestResult
+                    {
+                        IsSuccessful = false,
+                        Status = Core.Enums.ConnectionStatus.Error,
+                        Message = "Missing required Azure AD credentials. Please verify TenantId, ClientId, and ClientSecret are configured.",
+                        AdditionalInfo = new Dictionary<string, string>
+                        {
+                            ["TenantId"] = !string.IsNullOrEmpty(config.TenantId) ? "PROVIDED" : "MISSING",
+                            ["ClientId"] = !string.IsNullOrEmpty(config.ClientId) ? "PROVIDED" : "MISSING",
+                            ["ClientSecret"] = !string.IsNullOrEmpty(config.ClientSecret) ? "PROVIDED" : "MISSING"
+                        }
+                    };
+                }
+
+                var graphClient = CreateGraphClient(config);
+
+                // Test connection by trying to get the organization information
+                var organization = await graphClient.Organization.GetAsync();
+
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = true,
+                    Status = Core.Enums.ConnectionStatus.Connected,
+                    Message = "Successfully connected to Azure AD",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["TenantId"] = config.TenantId,
+                        ["OrganizationCount"] = organization?.Value?.Count.ToString() ?? "0",
+                        ["TestTime"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                var config = AdConnectionConfig.ParseConnectionString(connection.ConnectionString);
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = false,
+                    Status = Core.Enums.ConnectionStatus.AuthenticationFailed,
+                    Message = $"Azure AD connection failed: {ex.Message}",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["ErrorType"] = ex.GetType().Name,
+                        ["TenantId"] = config.TenantId ?? "MISSING",
+                        ["ClientId"] = config.ClientId ?? "MISSING",
+                        ["Suggestion"] = "Verify credentials and ensure the application has proper permissions in Azure AD"
+                    }
+                };
+            }
+        }
+
+        private async Task<ConnectionTestResult> TestExchangeOnlineConnectionAsync(ConnectionSettings connection)
+        {
+            try
+            {
+                var connectionParams = ParseExchangeConnectionString(connection.ConnectionString);
+
+                if (!connectionParams.ContainsKey("TenantId") || !connectionParams.ContainsKey("ClientId") || !connectionParams.ContainsKey("ClientSecret"))
+                {
+                    return new ConnectionTestResult
+                    {
+                        IsSuccessful = false,
+                        Status = Core.Enums.ConnectionStatus.Error,
+                        Message = "Missing required Exchange Online credentials. Please verify TenantId, ClientId, and ClientSecret are configured.",
+                        AdditionalInfo = new Dictionary<string, string>
+                        {
+                            ["TenantId"] = connectionParams.ContainsKey("TenantId") ? "PROVIDED" : "MISSING",
+                            ["ClientId"] = connectionParams.ContainsKey("ClientId") ? "PROVIDED" : "MISSING",
+                            ["ClientSecret"] = connectionParams.ContainsKey("ClientSecret") ? "PROVIDED" : "MISSING"
+                        }
+                    };
+                }
+
+                var graphClient = CreateGraphClientForExchange(connectionParams);
+
+                // Test connection by trying to get users (limited to 1)
+                var users = await graphClient.Users.GetAsync((requestConfiguration) =>
+                {
+                    requestConfiguration.QueryParameters.Top = 1;
+                    requestConfiguration.QueryParameters.Select = new string[] { "id", "userPrincipalName" };
+                });
+
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = true,
+                    Status = Core.Enums.ConnectionStatus.Connected,
+                    Message = "Successfully connected to Exchange Online",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["TenantId"] = connectionParams["TenantId"],
+                        ["UserCount"] = users?.Value?.Count.ToString() ?? "0",
+                        ["TestTime"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC")
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                var connectionParams = ParseExchangeConnectionString(connection.ConnectionString);
+                return new ConnectionTestResult
+                {
+                    IsSuccessful = false,
+                    Status = Core.Enums.ConnectionStatus.AuthenticationFailed,
+                    Message = $"Exchange Online connection failed: {ex.Message}",
+                    AdditionalInfo = new Dictionary<string, string>
+                    {
+                        ["ErrorType"] = ex.GetType().Name,
+                        ["TenantId"] = connectionParams.ContainsKey("TenantId") ? connectionParams["TenantId"] : "MISSING",
+                        ["Suggestion"] = "Verify credentials and ensure the application has proper Exchange permissions"
+                    }
+                };
+            }
+        }
+
+        private async Task<ConnectionTestResult> TestOnPremisesExchangeConnectionAsync(ConnectionSettings connection)
+        {
+            await Task.Delay(50);
+            return new ConnectionTestResult
+            {
+                IsSuccessful = false,
+                Status = Core.Enums.ConnectionStatus.Error,
+                Message = "On-premises Exchange testing is not implemented. This feature requires PowerShell and Exchange Management Shell.",
+                AdditionalInfo = new Dictionary<string, string>
+                {
+                    ["FeatureStatus"] = "Not Implemented",
+                    ["RequiredComponents"] = "PowerShell, Exchange Management Shell"
+                }
+            };
+        }
+
+        private string GetAuthenticationSuggestion(int errorCode, AdConnectionConfig config)
+        {
+            return errorCode switch
+            {
+                -2147023570 => "Check username and password. Ensure account is not locked or disabled.",
+                -2147016646 => "Verify domain name and network connectivity to domain controller.",
+                -2147016656 => "Domain controller is not reachable. Check network connectivity.",
+                -2147016651 => "Access denied. Ensure account has permission to query Active Directory.",
+                _ => "Check connection string parameters and network connectivity."
+            };
+        }
+
+        #endregion
+
         #region Simulated Data Methods
 
         private IEnumerable<AdUser> GetSimulatedUsers()
